@@ -11,18 +11,18 @@
 
 ## 一次完整的AFN请求流程
 
-1. 构建__AFURLSessionManager__ :
+1. 构建**AFURLSessionManager** :
 <pre><code>- (instancetype)initWithSessionConfiguration:(NSURLSessionConfiguration *)configuration;
 </code></pre>
-在该构造方法中，会涉及到__NSURLSession__的构造，该过程中，将设置自己为__NSURLSessionDelegate__的代理，该代理的调用会调用到专门处理与sessionTask相关的 __AFURLSessionManagerTaskDelegate__的方法。
+在该构造方法中，会涉及到**NSURLSession**的构造，该过程中，将设置自己为**NSURLSessionDelegate**的代理，该代理的调用会调用到专门处理与sessionTask相关的 **AFURLSessionManagerTaskDelegate**的方法。
 
 
-2. 构建__NSURLSessionTask__ -- 利用AFURLSessionManager构建,其中需要__NSURLRequest__类型的参数:
+2. 构建**NSURLSessionTask** -- 利用AFURLSessionManager构建,其中需要**NSURLRequest**类型的参数:
 <pre><code>- (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)request
                                 completionHandler:(nullable void (^)(NSURLResponse *response, id _Nullable responseObject,  NSError * _Nullable error))completionHandler DEPRECATED_ATTRIBUTE;
 </code></pre>
 
-3. 构建__NSURLRequest__ -- 遵循AFURLRequestSerialization协议的方法构建。其中会分为NSURLSessionDataTask, NSURLSessionUploadTask和NSURLSessionDownloadTask的构建。以NSURLSessionDataTask中的一个构造方法为例：
+3. 构建**NSURLRequest** -- 遵循AFURLRequestSerialization协议的方法构建。其中会分为NSURLSessionDataTask, NSURLSessionUploadTask和NSURLSessionDownloadTask的构建。以NSURLSessionDataTask中的一个构造方法为例：
 <pre><code>- (NSURLRequest *)requestBySerializingRequest:(NSURLRequest *)request
                                    withParameters:(id)parameters
                                             error:(NSError *__autoreleasing *)error;
