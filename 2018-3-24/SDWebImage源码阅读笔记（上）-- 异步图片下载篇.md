@@ -1,19 +1,19 @@
-#SDWebImage源码阅读笔记（上）-- 异步图片下载篇
+# SDWebImage源码阅读笔记（上）-- 异步图片下载篇
 
-##SDWebImage主要作用
+## SDWebImage主要作用
 
 异步下载图片（本文主要分析）、实现图片缓存。
 
-##异步下载图片实现流程
+## 异步下载图片实现流程
 UIImageView通过SDWebImageManager发起下载请求 -> 创建自定义的SDWebImageDownloaderOperation -> 添加到SDWebImageDownloader中的downloadQueue -> downloadQueue触发NSURLSessionDataDelegate和NSURLSessionTaskDelegate异步调用progressCallBack和completeionCallBack
 
-##核心用法
+## 核心用法
 ````objc
   [cell.imageView sd_setImageWithURL:[NSURL URLWithString:@"http://www.domain.com/path/to/image.jpg"]
                     placeholderImage:[UIImage imageNamed:@"placeholder.png"]];
 ````
 
-##关键问题
+## 关键问题
 1. 自己实现的想法：
 	1. 将网络图片下载到本地；-- 如何下载，同步异步？
 	2. 显示已缓存到本地的图片； -- 缓存策略如何选择？（将在下篇分析）
@@ -23,7 +23,7 @@ UIImageView通过SDWebImageManager发起下载请求 -> 创建自定义的SDWebI
 	1. 如何实现异步下载图片，如何添加与管理任务？
 	2. 如何实现进度监控回调，以及什么时候实现完成回调？
 
-##实现原理分析
+## 实现原理分析
 
 1. SDWebImageDowloaderOperation
 		
@@ -73,7 +73,7 @@ UIImageView通过SDWebImageManager发起下载请求 -> 创建自定义的SDWebI
 	    	progressBlock(self.imageData.length, self.expectedSize, self.request.URL);
 	    }
     }	
-````
+	````
 
 	在task全部接收数据后，会触发NSURLSessionTaskDelegate的```URLSession:task:didCompleteWithError:```方法。在该方法中会调用[self done]方法以移除self.callbackBlocks保存的所有回调。
 		在该方法内，当options不是SDWebImageDownloaderIgnoreCachedResponse时，默认会在异步的self.coderQueue对列内进行除GIFs和WebPs的图片压缩编码，并将压缩后的图片作为参数返回给completedBlock。
@@ -86,6 +86,7 @@ UIImageView通过SDWebImageManager发起下载请求 -> 创建自定义的SDWebI
 	SDWebImageDowlaoder是一个单例，持有下载队列downloadQueue。上面提及的SDWebImageDownloaderOperation就是添加到downloadQueue中执行。SDWebImageDowloader提供诸如最大并发数、下载顺序、下载超时等自定义操作。该类的核心方法是```downloadImageWithURL:options:progress:completed:``` 和```addProgressCallback:completedBlock:forURL:createCallback:```。通过前者来设置网络请求的超时、请求头部还有是否需要证书验证等操作。
 	
 	````objc
+	
 	- (nullable SDWebImageDownloadToken *)downloadImageWithURL:(nullable NSURL *)url
                                                    options:(SDWebImageDownloaderOptions)options
                                                   progress:(nullable SDWebImageDownloaderProgressBlock)progressBlock
@@ -112,10 +113,12 @@ UIImageView通过SDWebImageManager发起下载请求 -> 创建自定义的SDWebI
 	
 	        return operation;
 	    }];
-}
+	}
+	
 	````
 	
 	````objc
+	
 	- (nullable SDWebImageDownloadToken *)addProgressCallback:(SDWebImageDownloaderProgressBlock)progressBlock
                                            completedBlock:(SDWebImageDownloaderCompletedBlock)completedBlock
                                                    forURL:(nullable NSURL *)url
@@ -159,7 +162,7 @@ UIImageView通过SDWebImageManager发起下载请求 -> 创建自定义的SDWebI
 	    token.downloadOperationCancelToken = downloadOperationCancelToken;
 	
 	    return token;
-}
+	}
 	````
 	
 3. SDWebImageManager
@@ -167,8 +170,6 @@ UIImageView通过SDWebImageManager发起下载请求 -> 创建自定义的SDWebI
 	这个也是一个单例，里面包含对SDWebImageDowlaoder以及缓存相关操作的调用，该类将在下一遍再详细分析。
 
 
-
-
-##Reference
+## Reference
 1. [知其然亦知其所以然--NSOperation并发编程](http://www.cocoachina.com/game/20151201/14517.html)
 2. [iOS 中对 HTTPS 证书链的验证](https://www.jianshu.com/p/31bcddf44b8d)
