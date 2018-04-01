@@ -133,50 +133,43 @@ c. 按照缓存策略删除缓存
         NSMutableDictionary<NSURL *, NSDictionary<NSString *, id> *> *cacheFiles = [NSMutableDictionary dictionary];
         NSUInteger currentCacheSize = 0;
 
-        // Enumerate all of the files in the cache directory.  This loop has two purposes:
-        //
-        //  1. Removing files that are older than the expiration date.
-        //  2. Storing file attributes for the size-based cleanup pass.
+		 // 该数组用于存放过期的以及大于缓存最大数量的fileURL
         NSMutableArray<NSURL *> *urlsToDelete = [[NSMutableArray alloc] init];
         for (NSURL *fileURL in fileEnumerator) {
-            NSError *error;
-            NSDictionary<NSString *, id> *resourceValues = [fileURL resourceValuesForKeys:resourceKeys error:&error];
-
-            // Skip directories and errors.
-            if (error || !resourceValues || [resourceValues[NSURLIsDirectoryKey] boolValue]) {
-                continue;
-            }
-
-            // Remove files that are older than the expiration date;
+            
+            ...
+            
+        	  // 根据最后修改日期与过期日期的对比，找出过期的文档的路径并存入urlsToDelete数组
             NSDate *modificationDate = resourceValues[NSURLContentModificationDateKey];
             if ([[modificationDate laterDate:expirationDate] isEqualToDate:expirationDate]) {
                 [urlsToDelete addObject:fileURL];
                 continue;
             }
 
-            // Store a reference to this file and account for its total size.
+            // 用于计算所有非过期文件的总缓存空间大小
             NSNumber *totalAllocatedSize = resourceValues[NSURLTotalFileAllocatedSizeKey];
             currentCacheSize += totalAllocatedSize.unsignedIntegerValue;
             cacheFiles[fileURL] = resourceValues;
         }
         
+        // 清除已过期的文件
         for (NSURL *fileURL in urlsToDelete) {
             [self.fileManager removeItemAtURL:fileURL error:nil];
         }
 
-        // If our remaining disk cache exceeds a configured maximum size, perform a second
-        // size-based cleanup pass.  We delete the oldest files first.
+		  // maxCacheSize默认为0，即默认缓存清除策略不包含缓存空间大小
+		  // 如果自定义了maxCacheSize, 剩余的缓存文件size仍然大于maxCacheSize，则按最新存入硬盘的文件日期为先序，执行清除操作
         if (self.config.maxCacheSize > 0 && currentCacheSize > self.config.maxCacheSize) {
-            // Target half of our maximum cache size for this cleanup pass.
+			  // 以自定义maxCacheSize的一半为阈值
             const NSUInteger desiredCacheSize = self.config.maxCacheSize / 2;
 
-            // Sort the remaining cache files by their last modification time (oldest first).
+            // 按最新存入硬盘的文件日期为先序排序
             NSArray<NSURL *> *sortedFiles = [cacheFiles keysSortedByValueWithOptions:NSSortConcurrent
                                                                      usingComparator:^NSComparisonResult(id obj1, id obj2) {
                                                                          return [obj1[NSURLContentModificationDateKey] compare:obj2[NSURLContentModificationDateKey]];
                                                                      }];
 
-            // Delete files until we fall below our desired cache size.
+            // 删除文件直到文件空间小于阈值
             for (NSURL *fileURL in sortedFiles) {
                 if ([self.fileManager removeItemAtURL:fileURL error:nil]) {
                     NSDictionary<NSString *, id> *resourceValues = cacheFiles[fileURL];
@@ -232,7 +225,7 @@ c. 按照缓存策略删除缓存
     return obj;
 }
 
-// 被didReceiveMemoryWarning:调用，内存警告时，移除所有缓存数据
+// 被didReceiveMemoryWarning:调用，收到内存警告时，移除所有缓存数据
 - (void)removeAllObjects {
     [super removeAllObjects];
     // weakCache需要手动清除
@@ -244,9 +237,9 @@ c. 按照缓存策略删除缓存
 ````
 
 ## 总结
-1. NSCache的使用
-2. NSMatable的使用
-3. @autoreleasePool的用途
+1. ```NSCache```的使用：自动管理缓存，当内存紧张时，丢弃NSCache，优化App性能。同时，NSCache是线程安全的，所以在多线程调用时不必加锁。
+2. ```NSMaptable```的使用：创建strong-weak映射表，弱引用```UIImage```，达到当```UIImage```销毁时自动从映射表中移除的效果，实现图片缓存的二级缓存。
+3. ```@autoreleasePool```的用途：主要用于防止临时变量过大，占用内存过多而导致内存激增使App崩溃的问题。
 
 
 ## Refernece
