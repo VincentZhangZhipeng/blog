@@ -1,8 +1,6 @@
 # SDWebImage源码阅读笔记（上）-- 异步图片下载篇
 
-## SDWebImage主要作用
-
-异步下载图片（本文主要分析）、实现图片缓存。
+> SDWebImage核心功能是异步下载图片（本文主要分析）、实现图片缓存。本文主要阅读的源码基于[SDWebImage release 4.3.3](https://codeload.github.com/rs/SDWebImage/zip/4.3.3)。
 
 ## 异步下载图片实现流程
 UIImageView通过SDWebImageManager发起下载请求 -> 创建自定义的SDWebImageDownloaderOperation -> 添加到SDWebImageDownloader中的downloadQueue -> downloadQueue触发NSURLSessionDataDelegate和NSURLSessionTaskDelegate异步调用progressCallBack和completeionCallBack
@@ -27,7 +25,7 @@ UIImageView通过SDWebImageManager发起下载请求 -> 创建自定义的SDWebI
 
 1. SDWebImageDowloaderOperation
 		
-	这个是继承自NSOperation的图片下载任务类，每个operation作为一个任务添加到SDWebImageDownloader持有的downloadQueue中。同时，作为使用NSURLSesion下载图片的类，operation遵循NSURLSessionTaskDelegate和NSURLSessionDataDelegate。
+	这个是继承自NSOperation的图片下载任务类，每个operation作为一个任务添加到SDWebImageDownloader持有的downloadQueue中。同时，作为使用NSURLSesion下载图片的类，operation遵循```NSURLSessionTaskDelegate```和```NSURLSessionDataDelegate```。
 		
 	````objc
 		#pragma mark NSURLSessionDataDelegate
@@ -75,10 +73,10 @@ UIImageView通过SDWebImageManager发起下载请求 -> 创建自定义的SDWebI
     }	
 	````
 
-	在task全部接收数据后，会触发NSURLSessionTaskDelegate的```URLSession:task:didCompleteWithError:```方法。在该方法中会调用[self done]方法以移除self.callbackBlocks保存的所有回调。
-		在该方法内，当options不是SDWebImageDownloaderIgnoreCachedResponse时，默认会在异步的self.coderQueue对列内进行除GIFs和WebPs的图片压缩编码，并将压缩后的图片作为参数返回给completedBlock。
+	在task全部接收数据后，会触发NSURLSessionTaskDelegate的```URLSession:task:didCompleteWithError:```方法。在该方法中会调用```[self done]```方法以移除```self.callbackBlocks```保存的所有回调。
+		在该方法内，当options不是SDWebImageDownloaderIgnoreCachedResponse时，默认会在异步的```self.coderQueue```对列内进行除GIFs和WebPs的图片压缩编码，并将压缩后的图片作为参数返回给完成回调```completedBlock```。
 		
-	operation会重写NSOperation的start方法，dataTask的获取与开始在start方法中完成。
+	operation会重写```NSOperation```的```start```方法，```dataTask```的获取与开始在```start```方法中完成。
 		
 		
 2. SDWebImageDownloader
@@ -168,6 +166,12 @@ UIImageView通过SDWebImageManager发起下载请求 -> 创建自定义的SDWebI
 3. SDWebImageManager
 	
 	这个也是一个单例，里面包含对SDWebImageDowlaoder以及缓存相关操作的调用，该类将在下一遍再详细分析。
+	
+## 总结
+1. 自定义NSOperation，需要重写start()方法，如果想自己控制任务的取消、完成，需要重写isFinished、isExecuting和isCanceled属性。这三个属性在setter时，需要调用KVC方法：```willChangeValueForKey:```和```didChangeValueForKey:```。
+2. 因为NSSession实例实现代理获取网络请求结果时，```NSURLSessionTaskDelegate```和```NSURLSessionDataTaskDelegate```的代理方法都是在异步队列中，所以需要自己对下载图片的进度回调和完成回调进行管理。SDWebImage把这两种回调都存在字典中，而字典存在数组中，数组则是存在以下载图片URL为key的回调字典数组的字典中。其中，为了线程安全，这些字典的增删操作，SDWebImage都会加锁，其加锁一般用@synchronized()和信号量实现。
+3. iOS证书验证，要遵循NSURLSessionTaskDelegate并实现```URLSession:didReceiveChallenge:completionHandler:```方法。自定义的验证过程需创建```NSURLCredential```类进行验证。
+
 
 
 ## Reference
