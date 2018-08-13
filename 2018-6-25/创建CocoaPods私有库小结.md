@@ -90,7 +90,11 @@ pod repo add LOCAL_SPEC_PATH SOURCE_URL
 
 	解决方法：使用 ```echo "x.x" > .swift-version```命令指定Swift版本。
 	
+3. podspec依赖的是一个私有库时，验证时，出现```- ERROR | [iOS] unknown: Encountered an unknown error (Unable to find a specification for `WCDB (= 1.0.4)` depended upon by `CRIM`) during validation.```。
+	
+	解决方法：使用```pod lib lint --sources='YOUR_PRIVATE_LIBRARY_PATH' --allow-warnings```
 
 ## Reference
 1. [创建 podspec 文件，给自己写的框架添加 CocoaPos 支持](https://www.jianshu.com/p/4d73369b8cf9)
 2. [创建私有cocoapods repo库 —— Private Pods](https://blog.csdn.net/andanlan/article/details/51713595)
+3. [使用cocoapods打包静态库](https://www.jianshu.com/p/9096a2eb2804)
