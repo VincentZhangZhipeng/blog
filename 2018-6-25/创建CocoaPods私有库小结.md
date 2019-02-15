@@ -93,8 +93,12 @@ pod repo add LOCAL_SPEC_PATH SOURCE_URL
 3. podspec依赖的是一个私有库时，验证时，出现```- ERROR | [iOS] unknown: Encountered an unknown error (Unable to find a specification for `WCDB (= 1.0.4)` depended upon by `CRIM`) during validation.```。
 	
 	解决方法：使用```pod lib lint --sources='YOUR_PRIVATE_LIBRARY_PATH' --allow-warnings```
+	
+4. 使用wcdb时，因为wcdb有一个宏在做`ifndef __cplusplus`的类型判断，如果.m文件为非objective-c++ source，则会被抛出异常。所以，cocoapods库里面包含wcdb时，不能把引用<wcdb/wcdb.h>的头文件设置为public source header，否则会在umbrella header中对相关文件调用，从而导致非oc++的异常。
 
 ## Reference
 1. [创建 podspec 文件，给自己写的框架添加 CocoaPos 支持](https://www.jianshu.com/p/4d73369b8cf9)
 2. [创建私有cocoapods repo库 —— Private Pods](https://blog.csdn.net/andanlan/article/details/51713595)
 3. [使用cocoapods打包静态库](https://www.jianshu.com/p/9096a2eb2804)
+4. [制作Swift和Objective-C Mixed的Pod](https://www.jianshu.com/p/c7623c31d77b)
+5. [动态库静态库优缺点](https://www.jianshu.com/p/4e0fd0214152)
