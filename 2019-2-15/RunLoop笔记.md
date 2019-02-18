@@ -17,7 +17,7 @@
 	 	}
 	 	exit();
 	 }
-```
+	```
 
 2. RunLoop和RunLoopMode的结构定义
 	
@@ -175,20 +175,56 @@ CGD中,执行`dispatch_async(dispatch_get_main_queue(), block)` 时，`libDispat
 ### 用RunLoop优化界面更新
 UIView或CALayer的变更，如frame的变动，视图层级的变化，或者手动调用`setNeedsLayout/setNeedsDisplay`，都会被标记为待处理，然后提交到一个全局容器中。
 
-前面提到的`BeforeWating`和`Exit`这两个监听，都会回调`_ZN2CA11Transaction17observer_callbackEP19__CFRunLoopObservermPv()`，所有在之前被标记为待处理的UIView或者CALayer，都会在这时候更新UI。
+前面提到的`BeforeWating`和`Exit`这两个监听，都会回调`_ZN2CA11Transaction17observer_callbackEP19__CFRunLoopObservermPv()`，所有在之前被标记为待处理的UIView或者CALayer，都会在这时候更新UI。此时，CAAnimation无论显式（CABasicAnimation，CAKeyframeAnimation，CATransitionAnimation，CAAnimationGroup）还是隐式动画，都会随着CALayer的更新而重绘。
 
 利用界面更新的原理，可以改善App的卡顿问题，目的都是利用RunLoop运行时的空闲时间来更新UI，避免繁重任务时更新导致卡顿。以`AsyncDisplayKit`和`UITableView+FDTemplateLayoutCell`为例子。
 
 #### 1. `AsyncDisplayKit`
 
 UI相关操作一般分为以下三部分：
-1. 排版是指计算视图的frame，计算文本的高度，计算子视图的排版。
-2. 绘制一般是指文本绘制（coreText）、图片绘制（包括图片解压）、元素绘制（Quartz）。
-3. UI操作则是`UIView/CALayer`创建、设置属性和销毁。
 
-前两者可以放到其他线程，而第三步必须放到主线程。`AsyncDisplayKit`的思路是即将可以放到后台的所有耗时操作，都放到后台，否则，尽量推迟，等待主线程空闲。
+1. Layout（排版）是指计算视图的frame，计算文本的宽、高度，计算子视图的排版。
+2. Rendering（绘制）一般是指文本绘制（coreText）、图片绘制（包括图片解压）、元素绘制（Quartz）。
+3. UIKit对象操作，指`UIView/CALayer`创建、设置属性和销毁。
 
-`AsyncDisplayKit`仿照 QuartzCore/UIKit 框架的模式，实现了一套类似的界面更新的机制：即在主线程的 RunLoop 中添加一个 Observer，监听了 kCFRunLoopBeforeWaiting 和 kCFRunLoopExit 事件，在收到回调时，遍历所有之前放入队列的待处理的任务，然后一一执行。
+前两者可以放到其他线程，而第三步必须放到主线程。`AsyncDisplayKit`的思路是即将可以放到后台的所有耗时操作，都放到后台，否则，遇到必须要放到主线程的操作，用`ASAsyncTransactionGroup`封装后提交到一个全局容器中，等待执行。
+
+`AsyncDisplayKit`仿照 QuartzCore/UIKit 框架的模式，实现了一套类似`CoreAnimation`的界面更新的机制：即在主线程的 RunLoop中添加一个Observer，监听了`kCFRunLoopBeforeWaiting`和`kCFRunLoopExit`事件（与`CoreAnimation`一样，但优先级较低），在收到回调时，遍历所有之前放入队列的待处理的`ASAsyncTransactionGroup`任务，然后一一执行。相关代码节选如下：
+
+```objc
++ (void)registerTransactionGroupAsMainRunloopObserver:(_ASAsyncTransactionGroup *)transactionGroup
+{
+  ···
+  static CFRunLoopObserverRef observer;
+
+  CFRunLoopRef runLoop = CFRunLoopGetCurrent();
+  CFOptionFlags activities = (kCFRunLoopBeforeWaiting | kCFRunLoopExit); // 设置RunLoop休眠前和退出RunLoop两个状态
+  CFRunLoopObserverContext context = {
+    0,           // version
+    (__bridge void *)transactionGroup,  // info，回调_transactionGroupRunLoopObserverCallback的入参
+    &CFRetain,   // retain
+    &CFRelease,  // release
+    NULL         // copyDescription
+  };
+
+  observer = CFRunLoopObserverCreate(NULL,        // allocator
+                                     activities,  // activities
+                                     YES,         // repeats
+                                     INT_MAX,     // 优先级，在CA commit的观察者之后
+                                     &_transactionGroupRunLoopObserverCallback,  // callback
+                                     &context);   // context
+  CFRunLoopAddObserver(runLoop, observer, kCFRunLoopCommonModes);
+  CFRelease(observer);
+}
+
+
+static void _transactionGroupRunLoopObserverCallback(CFRunLoopObserverRef observer, CFRunLoopActivity activity, void *info)
+{
+  ASDisplayNodeCAssertMainThread();
+  _ASAsyncTransactionGroup *group = (__bridge _ASAsyncTransactionGroup *)info;
+  [group commit];
+}
+```
 
 
 
