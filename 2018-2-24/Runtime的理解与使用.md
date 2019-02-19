@@ -124,7 +124,7 @@ void dynamicMethodIMP(id self, SEL _cmd)
 
 	在运行时为实例的isa指向一个派生类，该派生类作为实例的原来isa类的子类，动态添加自己想要的方法，以隐式实现一些功能。`KVO`就是利用这个黑科技实现的。具体可见我的另外一篇博文：[KVO底层原理小结.md](https://github.com/VincentZhangZhipeng/blog/blob/master/2018-4-15/KVO%E5%BA%95%E5%B1%82%E5%8E%9F%E7%90%86%E5%B0%8F%E7%BB%93.md)。
 
-##Reference
+## Reference
 1. [iOS-runtime通篇详解-上](http://www.cocoachina.com/ios/20170424/19102.html)
 2. [iOS底层知识-runtime详解](http://blog.csdn.net/u011363981/article/details/61917872)
 3. [iOS关联对象技术原理](https://mp.weixin.qq.com/s/X_gCjdoTxIBUr1hZApiwow)

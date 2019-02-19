@@ -253,6 +253,41 @@ value = @(arg);\
 }
 ```
 
+## GNU中的实现思路
+[GNU源码](https://github.com/gnustep/libs-base)对KVO的基本实现为：用模板类`GSKVOBase`定义一些基本行为，例如Class方法、`setValue:forKey:`方法，所有的派生类（replacement）的方法列表都来自于该模版类，这样派生类就可以做成一个轻量级的对象，不用重写特定的set方法，在调用被KVO的对象其它方法时，也能保证调用的是原Class方法列表中的IMP。
+
+```objc
+// GSKVOBase Implementaion
+- (Class) class
+{
+// 返回KVOBase的父类，也即原类，所以[class description]返回的是原类名
+  return class_getSuperclass(object_getClass(self));
+}
+
+- (void) setValue: (id)anObject forKey: (NSString*)aKey
+{
+  Class		c = [self class];
+  void		(*imp)(id,SEL,id,id);
+
+  imp = (void (*)(id,SEL,id,id))[c instanceMethodForSelector: _cmd];
+
+// 判断实例的key有否被kvo
+  if ([[self class] automaticallyNotifiesObserversForKey: aKey])
+    {
+      // 有则插入willChangeValueForKey和didChangeValueForKey两个方法
+      [self willChangeValueForKey: aKey];
+      imp(self,_cmd,anObject,aKey);
+      [self didChangeValueForKey: aKey];
+    }
+  else
+    {
+      // 否则，执行原有的set方法即可
+      imp(self,_cmd,anObject,aKey);
+    }
+}
+```
+
 ## Reference
 1. [透彻理解 KVO 观察者模式（附基于runtime实现代码](https://www.jianshu.com/p/7ea7d551fc69)
 2. [JSPatch实现原理](https://github.com/bang590/JSPatch/wiki/JSPatch-%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86%E8%AF%A6%E8%A7%A3)
+3. [带着问题读源码----KVO](https://suhou.github.io/2018/01/17/%E5%B8%A6%E7%9D%80%E9%97%AE%E9%A2%98%E8%AF%BB%E6%BA%90%E7%A0%81----KVO/)
